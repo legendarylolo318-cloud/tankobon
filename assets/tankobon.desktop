@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Tankobon
+GenericName=Manga Reader
+Comment=Read manga from MangaDex and local folders or CBZ/CBR/CB7 archives
+Exec=tankobon
+Icon=tankobon
+Terminal=false
+Categories=Graphics;Viewer;
+Keywords=manga;comic;reader;cbz;cbr;mangadex;
+StartupWMClass=tankobon

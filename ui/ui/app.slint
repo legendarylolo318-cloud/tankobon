@@ -1,0 +1,364 @@
+import { State, Actions } from "globals.slint";
+import { LibraryView } from "library.slint";
+import { ExplorerView } from "explorer.slint";
+import { MangaView } from "manga.slint";
+import { HistoryView, UpdatesView, DownloadsView } from "lists.slint";
+import { PrefsView } from "prefs.slint";
+import { ReaderView } from "reader.slint";
+import { SmallButton, Badge } from "widgets.slint";
+import { LineEdit, Button, CheckBox, ListView , Palette } from "std-widgets.slint";
+
+export { State, Actions }
+
+component NavItem inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> active;
+    in property <string> badge;
+    in property <bool> compact: false;
+    callback clicked();
+    height: 42px;
+    border-radius: 8px;
+    background: root.active ? Palette.accent-background.with-alpha(0.22) : transparent;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 10px;
+        spacing: 10px;
+        Text {
+            text: root.icon;
+            font-size: 16px;
+            vertical-alignment: center;
+            color: root.active ? Palette.accent-background : Palette.foreground;
+        }
+        if !root.compact: Text {
+            text: root.text;
+            font-size: 14px;
+            font-weight: root.active ? 700 : 400;
+            vertical-alignment: center;
+            color: Palette.foreground;
+            horizontal-stretch: 1;
+        }
+        if root.badge != "" && !root.compact: Badge {
+            y: (parent.height - self.height) / 2;
+            text: root.badge;
+        }
+    }
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+    states [
+        hover when ta.has-hover && !root.active: {
+            background: Palette.foreground.with-alpha(0.07);
+        }
+    ]
+}
+
+component Modal inherits Rectangle {
+    in property <string> title;
+    callback closed();
+    background: #00000099;
+    TouchArea {
+        clicked => {
+            root.closed();
+        }
+    }
+    Rectangle {
+        width: min(460px, parent.width - 40px);
+        height: min(520px, parent.height - 40px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: Palette.background;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: Palette.border;
+        TouchArea { }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            Text {
+                text: root.title;
+                font-size: 18px;
+                font-weight: 700;
+                color: Palette.foreground;
+            }
+            @children
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Tankobon";
+    icon: @image-url("../../assets/tankobon.png");
+    // Small minimum so the app fits phone screens (Android); narrow windows get a compact sidebar.
+    min-width: 360px;
+    min-height: 480px;
+    property <bool> compact: self.width < 720px;
+    preferred-width: 1200px;
+    preferred-height: 780px;
+    background: Palette.background;
+    full-screen: State.r-fullscreen;
+
+    in-out property <int> theme-idx <=> State.theme;
+    changed theme-idx => {
+        Palette.color-scheme = self.theme-idx == 0 ? ColorScheme.light : self.theme-idx == 1 ? ColorScheme.dark : ColorScheme.unknown;
+    }
+
+    // Explicit geometry keeps the window size independent of `compact`.
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        if State.overlay != 2: Rectangle {
+            width: root.compact ? 64px : 200px;
+            background: Palette.alternate-background;
+            // Positioned explicitly so the sidebar content does not feed back into
+            // the window size that `compact` is computed from.
+            VerticalLayout {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: parent.height;
+                padding: 12px;
+                spacing: 4px;
+                Text {
+                    text: root.compact ? "T" : "Tankobon";
+                    font-size: 20px;
+                    font-weight: 800;
+                    color: Palette.accent-background;
+                    height: 44px;
+                    vertical-alignment: center;
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "Library";
+                    icon: "▤";
+                    active: State.view == 0;
+                    clicked => {
+                        Actions.show-view(0);
+                    }
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "Explorer";
+                    icon: "⌕";
+                    active: State.view == 1;
+                    clicked => {
+                        Actions.show-view(1);
+                    }
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "Updates";
+                    icon: "⟳";
+                    active: State.view == 2;
+                    badge: State.updates.length > 0 ? "\{State.updates.length}" : "";
+                    clicked => {
+                        Actions.show-view(2);
+                    }
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "History";
+                    icon: "◷";
+                    active: State.view == 3;
+                    clicked => {
+                        Actions.show-view(3);
+                    }
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "Downloads";
+                    icon: "⬇";
+                    active: State.view == 4;
+                    badge: State.downloads.length > 0 ? "\{State.downloads.length}" : "";
+                    clicked => {
+                        Actions.show-view(4);
+                    }
+                }
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+                NavItem {
+                    compact: root.compact;
+                    text: "Preferences";
+                    icon: "⚙";
+                    active: State.view == 5;
+                    clicked => {
+                        Actions.show-view(5);
+                    }
+                }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            if State.view == 0: LibraryView { }
+            if State.view == 1: ExplorerView { }
+            if State.view == 2: UpdatesView { }
+            if State.view == 3: HistoryView { }
+            if State.view == 4: DownloadsView { }
+            if State.view == 5: PrefsView { }
+            if State.overlay == 1: MangaView { }
+        }
+    }
+
+    if State.overlay == 2: ReaderView { }
+
+    // ---- dialogs
+    if State.dialog == 1: Modal {
+        title: "Move to category";
+        closed => {
+            State.dialog = 0;
+        }
+        Button {
+            text: "No category";
+            clicked => {
+                Actions.selection-move(-1);
+                State.dialog = 0;
+            }
+        }
+        ListView {
+            vertical-stretch: 1;
+            for c in State.categories: Rectangle {
+                height: 40px;
+                Button {
+                    text: c.name;
+                    clicked => {
+                        Actions.selection-move(c.id);
+                        State.dialog = 0;
+                    }
+                }
+            }
+        }
+        if State.categories.length == 0: Text {
+            text: "No categories yet. Create one with “Categories”.";
+            color: Palette.foreground.with-alpha(0.6);
+            wrap: word-wrap;
+        }
+        Button {
+            text: "Cancel";
+            clicked => {
+                State.dialog = 0;
+            }
+        }
+    }
+    if State.dialog == 2: Modal {
+        title: "Categories";
+        closed => {
+            State.dialog = 0;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            newcat := LineEdit {
+                placeholder-text: "New category name";
+                horizontal-stretch: 1;
+                accepted(t) => {
+                    Actions.add-category(t);
+                    self.text = "";
+                }
+            }
+            Button {
+                text: "Add";
+                primary: true;
+                clicked => {
+                    Actions.add-category(newcat.text);
+                    newcat.text = "";
+                }
+            }
+        }
+        ListView {
+            vertical-stretch: 1;
+            for c in State.categories: Rectangle {
+                height: 44px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    LineEdit {
+                        text: c.name;
+                        horizontal-stretch: 1;
+                        accepted(t) => {
+                            Actions.rename-category(c.id, t);
+                        }
+                    }
+                    SmallButton {
+                        y: (parent.height - self.height) / 2;
+                        text: "Delete";
+                        danger: true;
+                        clicked => {
+                            Actions.delete-category(c.id);
+                        }
+                    }
+                }
+            }
+        }
+        Button {
+            text: "Close";
+            clicked => {
+                State.dialog = 0;
+            }
+        }
+    }
+    if State.dialog == 3: Modal {
+        title: "Remove from library?";
+        closed => {
+            State.dialog = 0;
+        }
+        Text {
+            text: "\{State.selected-count} manga will be removed from your library. Reading history is kept.";
+            wrap: word-wrap;
+            color: Palette.foreground;
+        }
+        CheckBox {
+            text: "Also delete downloaded chapters";
+            checked <=> State.remove-delete-files;
+        }
+        Rectangle {
+            vertical-stretch: 1;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            Button {
+                text: "Cancel";
+                clicked => {
+                    State.dialog = 0;
+                }
+            }
+            Button {
+                text: "Remove";
+                primary: true;
+                clicked => {
+                    Actions.selection-remove(State.remove-delete-files);
+                    State.dialog = 0;
+                }
+            }
+        }
+    }
+
+    // ---- toast
+    if State.toast != "": Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 80px;
+        width: min(parent.width - 40px, tt.preferred-width + 32px);
+        height: 38px;
+        border-radius: 19px;
+        background: #202020f0;
+        tt := Text {
+            text: State.toast;
+            color: white;
+            font-size: 13px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: parent.width;
+            overflow: elide;
+        }
+        TouchArea {
+            clicked => {
+                Actions.dismiss-toast();
+            }
+        }
+    }
+}

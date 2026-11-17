@@ -1,0 +1,62 @@
+[package]
+name = "tankobon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "tankobon_app"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "tankobon"
+path = "src/main.rs"
+
+# Android packaging (cargo-apk). Both ABIs: phones (arm64) and emulators (x86_64).
+[package.metadata.android]
+package = "org.tankobon.app"
+apk_name = "tankobon"
+build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
+resources = "../assets/android/res"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 34
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[package.metadata.android.application]
+label = "Tankobon"
+icon = "@mipmap/ic_launcher"
+
+[package.metadata.android.application.activity]
+config_changes = "orientation|screenSize|screenLayout|keyboardHidden"
+
+[features]
+avif = ["tankobon-core/avif"]
+# Developer-only scripted run that saves UI screenshots (see src/autopilot.rs).
+autopilot = ["dep:image"]
+image = ["dep:image"]
+
+[dependencies]
+anyhow = "1.0.104"
+futures-util = "0.3.34"
+image = { version = "0.25.10", default-features = false, features = ["png"], optional = true }
+slint = "1.19.0"
+tankobon-core = { path = "../core" }
+tankobon-ui = { path = "../ui" }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "sync", "time", "fs"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+rfd = { version = "0.18.0", default-features = false, features = ["xdg-portal"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.19.0", features = ["backend-android-activity-06"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+libc = "0.2"

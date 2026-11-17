@@ -1,0 +1,183 @@
+import { State, Actions } from "globals.slint";
+import { CardGrid, MangaCardView, PageTitle, Chip, SmallButton, Spinner } from "widgets.slint";
+import { LineEdit, ComboBox, Palette } from "std-widgets.slint";
+
+export component LibraryView inherits Rectangle {
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            PageTitle {
+                text: "Library";
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            LineEdit {
+                placeholder-text: "Search library";
+                width: 240px;
+                text <=> State.library-search;
+                edited(t) => {
+                    Actions.library-refresh();
+                }
+            }
+            ComboBox {
+                width: 150px;
+                model: ["Title", "Last read", "Last updated", "Date added", "Unread"];
+                current-index <=> State.library-sort;
+                selected(v) => {
+                    Actions.library-refresh();
+                }
+            }
+            SmallButton {
+                text: State.library-sort-desc ? "▼ Desc" : "▲ Asc";
+                clicked => {
+                    State.library-sort-desc = !State.library-sort-desc;
+                    Actions.library-refresh();
+                }
+            }
+            SmallButton {
+                text: State.select-mode ? "Done" : "Select";
+                clicked => {
+                    if State.select-mode {
+                        Actions.clear-selection();
+                    } else {
+                        State.select-mode = true;
+                    }
+                }
+            }
+            SmallButton {
+                text: "Categories";
+                clicked => {
+                    State.dialog = 2;
+                }
+            }
+        }
+        // category chips
+        Flickable {
+            height: 34px;
+            content-width: chips.preferred-width;
+            chips := HorizontalLayout {
+                spacing: 8px;
+                Chip {
+                    text: "All";
+                    active: State.category-index == 0;
+                    clicked => {
+                        State.category-index = 0;
+                        Actions.library-refresh();
+                    }
+                }
+                Chip {
+                    text: "Uncategorized";
+                    active: State.category-index == 1;
+                    clicked => {
+                        State.category-index = 1;
+                        Actions.library-refresh();
+                    }
+                }
+                for c[i] in State.categories: Chip {
+                    text: c.name;
+                    active: State.category-index == i + 2;
+                    clicked => {
+                        State.category-index = i + 2;
+                        Actions.library-refresh();
+                    }
+                }
+            }
+        }
+        if State.select-mode: Rectangle {
+            height: 44px;
+            background: Palette.alternate-background;
+            border-radius: 6px;
+            HorizontalLayout {
+                padding: 7px;
+                spacing: 8px;
+                Text {
+                    text: "\{State.selected-count} selected";
+                    vertical-alignment: center;
+                    color: Palette.foreground;
+                    font-weight: 700;
+                }
+                SmallButton {
+                    text: "Select all";
+                    clicked => {
+                        Actions.select-all();
+                    }
+                }
+                SmallButton {
+                    text: "Mark read";
+                    enabled: State.selected-count > 0;
+                    clicked => {
+                        Actions.selection-mark-read(true);
+                    }
+                }
+                SmallButton {
+                    text: "Mark unread";
+                    enabled: State.selected-count > 0;
+                    clicked => {
+                        Actions.selection-mark-read(false);
+                    }
+                }
+                SmallButton {
+                    text: "Download unread";
+                    enabled: State.selected-count > 0;
+                    clicked => {
+                        Actions.selection-download();
+                    }
+                }
+                SmallButton {
+                    text: "Move to category";
+                    enabled: State.selected-count > 0;
+                    clicked => {
+                        State.dialog = 1;
+                    }
+                }
+                SmallButton {
+                    text: "Remove";
+                    danger: true;
+                    enabled: State.selected-count > 0;
+                    clicked => {
+                        State.dialog = 3;
+                    }
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            CardGrid {
+                model: State.library;
+                select-mode: State.select-mode;
+                need-cover(id) => {
+                    Actions.need-cover(id);
+                }
+                clicked(id) => {
+                    Actions.card-clicked(id);
+                }
+                context(id) => {
+                    Actions.card-context(id);
+                }
+            }
+            if State.library.length == 0 && !State.library-loading: VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+                Text {
+                    text: State.library-search != "" ? "No matches." : "Your library is empty.";
+                    horizontal-alignment: center;
+                    font-size: 18px;
+                    color: Palette.foreground;
+                }
+                Text {
+                    text: State.library-search != "" ? "" : "Open Explorer to find manga, or add a local source.";
+                    horizontal-alignment: center;
+                    color: Palette.foreground.with-alpha(0.6);
+                }
+            }
+            if State.library-loading && State.library.length == 0: Spinner {
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

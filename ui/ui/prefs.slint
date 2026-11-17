@@ -1,0 +1,291 @@
+import { State, Actions } from "globals.slint";
+import { PageTitle, SectionLabel, SmallButton } from "widgets.slint";
+import { ComboBox, Switch, SpinBox, LineEdit, ScrollView, Button , Palette } from "std-widgets.slint";
+
+component Row inherits Rectangle {
+    in property <string> label;
+    in property <string> hint;
+    height: 44px;
+    HorizontalLayout {
+        spacing: 12px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            Text {
+                text: root.label;
+                font-size: 14px;
+                color: Palette.foreground;
+            }
+            if root.hint != "": Text {
+                text: root.hint;
+                font-size: 11px;
+                color: Palette.foreground.with-alpha(0.55);
+                overflow: elide;
+            }
+        }
+        @children
+    }
+}
+
+export component PrefsView inherits Rectangle {
+    ScrollView {
+        VerticalLayout {
+            padding: 16px;
+            spacing: 4px;
+            max-width: 760px;
+            alignment: start;
+            PageTitle {
+                text: "Preferences";
+            }
+            SectionLabel {
+                text: "APPEARANCE";
+            }
+            Row {
+                label: "Theme";
+                ComboBox {
+                    width: 180px;
+                    model: ["Light", "Dark", "System"];
+                    current-index <=> State.theme;
+                    selected(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "READER DEFAULTS";
+            }
+            Row {
+                label: "Reading mode";
+                ComboBox {
+                    width: 220px;
+                    model: ["Right to left", "Left to right", "Vertical", "Webtoon"];
+                    current-index <=> State.pref-mode;
+                    selected(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Image scaling";
+                ComboBox {
+                    width: 220px;
+                    model: ["Fit width", "Fit height", "Original size", "Fit screen"];
+                    current-index <=> State.pref-scaling;
+                    selected(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Background color";
+                ComboBox {
+                    width: 220px;
+                    model: ["Black", "Dark gray", "White", "Sepia"];
+                    current-index <=> State.pref-bg;
+                    selected(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Double-page spreads";
+                Switch {
+                    checked <=> State.pref-double;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Crop white borders";
+                Switch {
+                    checked <=> State.pref-crop;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Show page number";
+                Switch {
+                    checked <=> State.pref-page-number;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "LIBRARY";
+            }
+            Row {
+                label: "Check for updates on startup";
+                Switch {
+                    checked <=> State.pref-update-startup;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Download new chapters automatically";
+                Switch {
+                    checked <=> State.pref-auto-download;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "DOWNLOADS";
+            }
+            Row {
+                label: "Download location";
+                hint: "Empty = default folder";
+                LineEdit {
+                    width: 300px;
+                    text <=> State.pref-download-dir;
+                    accepted(t) => {
+                        Actions.prefs-changed();
+                    }
+                }
+                SmallButton {
+                    text: "Browse…";
+                    y: (parent.height - self.height) / 2;
+                    clicked => {
+                        Actions.browse-download-dir();
+                    }
+                }
+            }
+            Row {
+                label: "Concurrent downloads";
+                SpinBox {
+                    minimum: 1;
+                    maximum: 8;
+                    value <=> State.pref-max-downloads;
+                    edited(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "CACHE";
+            }
+            Row {
+                label: "Cache size limit (MB)";
+                hint: State.cache-size-text;
+                SpinBox {
+                    minimum: 16;
+                    maximum: 20000;
+                    value <=> State.pref-cache-mb;
+                    edited(v) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Clear cache";
+                hint: "Covers, fetched pages and extracted archives";
+                SmallButton {
+                    text: "Clear now";
+                    y: (parent.height - self.height) / 2;
+                    clicked => {
+                        Actions.clear-cache();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "SOURCES";
+            }
+            Row {
+                label: "MangaDex language";
+                hint: "ISO code, e.g. en, fr, es, pt-br";
+                LineEdit {
+                    width: 120px;
+                    text <=> State.pref-md-lang;
+                    accepted(t) => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "MangaDex: include mature content";
+                Switch {
+                    checked <=> State.pref-md-nsfw;
+                    toggled => {
+                        Actions.prefs-changed();
+                    }
+                }
+            }
+            Row {
+                label: "Local library folder";
+                hint: "Empty = default folder";
+                LineEdit {
+                    width: 300px;
+                    text <=> State.pref-local-dir;
+                    accepted(t) => {
+                        Actions.prefs-changed();
+                    }
+                }
+                SmallButton {
+                    text: "Browse…";
+                    y: (parent.height - self.height) / 2;
+                    clicked => {
+                        Actions.browse-local-dir();
+                    }
+                }
+            }
+            SectionLabel {
+                text: "BACKUP";
+            }
+            Row {
+                label: "Backup file";
+                hint: "Single-file backup of library, progress and settings";
+                LineEdit {
+                    width: 300px;
+                    text <=> State.backup-path;
+                }
+                SmallButton {
+                    text: "Save as…";
+                    y: (parent.height - self.height) / 2;
+                    clicked => {
+                        Actions.browse-backup(true);
+                    }
+                }
+                SmallButton {
+                    text: "Open…";
+                    y: (parent.height - self.height) / 2;
+                    clicked => {
+                        Actions.browse-backup(false);
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                height: 40px;
+                alignment: start;
+                Button {
+                    text: "Back up now";
+                    clicked => {
+                        Actions.backup-now();
+                    }
+                }
+                Button {
+                    text: "Restore";
+                    clicked => {
+                        Actions.restore-now();
+                    }
+                }
+                Text {
+                    text: State.prefs-status;
+                    vertical-alignment: center;
+                    color: Palette.foreground.with-alpha(0.7);
+                }
+            }
+            Text {
+                text: "Tankobon is free software (GPL-3.0-or-later).";
+                font-size: 12px;
+                color: Palette.foreground.with-alpha(0.5);
+            }
+        }
+    }
+}

@@ -1,0 +1,195 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Tests and lints
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  linux:
+    name: Linux AppImage (x86_64)
+    # Oldest supported runner: the AppImage then runs on older glibc versions too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-0 xvfb file
+      - name: Build
+        run: cargo build --release --locked -p tankobon
+      - name: Package AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          curl -fsSLo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          VERSION="${GITHUB_REF_NAME#v}" ./linuxdeploy --appdir AppDir \
+            -e target/release/tankobon \
+            -d assets/tankobon.desktop \
+            -i assets/tankobon.png \
+            --output appimage
+          mv Tankobon-*.AppImage Tankobon-x86_64.AppImage
+          file Tankobon-x86_64.AppImage
+      - name: Smoke test (launches and stays up under Xvfb)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          export XDG_DATA_HOME=$RUNNER_TEMP/data XDG_CACHE_HOME=$RUNNER_TEMP/cache XDG_CONFIG_HOME=$RUNNER_TEMP/cfg
+          xvfb-run -a -s "-screen 0 1280x800x24" ./Tankobon-x86_64.AppImage > app.log 2>&1 &
+          sleep 15
+          if pgrep -f tankobon > /dev/null; then echo "running"; else cat app.log; exit 1; fi
+          test -f "$XDG_DATA_HOME/tankobon/library.sqlite3"
+          pkill -f tankobon || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: Tankobon-x86_64.AppImage
+
+  windows:
+    name: Windows exe (x86_64 MSVC)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --locked -p tankobon --target x86_64-pc-windows-msvc
+      - name: Check GUI subsystem and icon
+        shell: pwsh
+        run: |
+          $exe = "target/x86_64-pc-windows-msvc/release/tankobon.exe"
+          $b = [IO.File]::ReadAllBytes($exe)
+          $pe = [BitConverter]::ToInt32($b, 0x3C)
+          $subsystem = [BitConverter]::ToUInt16($b, $pe + 24 + 68)
+          "subsystem=$subsystem"
+          if ($subsystem -ne 2) { throw "expected the Windows GUI subsystem (2), got $subsystem" }
+          Add-Type -AssemblyName System.Drawing
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $exe))
+          "icon=$($icon.Width)x$($icon.Height)"
+          Copy-Item $exe Tankobon-x86_64.exe
+      - name: Smoke test (launches and stays up)
+        shell: pwsh
+        run: |
+          $env:APPDATA = "$env:RUNNER_TEMP\appdata"
+          $env:LOCALAPPDATA = "$env:RUNNER_TEMP\localappdata"
+          $p = Start-Process -FilePath .\Tankobon-x86_64.exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) { throw "tankobon exited with code $($p.ExitCode)" }
+          "running, pid $($p.Id)"
+          Stop-Process -Id $p.Id
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Tankobon-x86_64.exe
+
+  android:
+    name: Android APK (arm64 + x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-apk
+        run: cargo install cargo-apk --locked --version 0.9.6
+      - name: Build APK
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_LATEST_HOME"
+          # Release builds are signed with a throwaway key generated here.
+          keytool -genkeypair -keystore release.keystore -storepass android -keypass android \
+            -alias tankobon -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Tankobon"
+          export CARGO_APK_RELEASE_KEYSTORE="$PWD/release.keystore"
+          export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android
+          cargo apk build --release -p tankobon --lib
+          find target -name '*.apk' -path '*release*'
+          cp "$(find target -name 'tankobon.apk' -path '*release*' | head -1)" Tankobon.apk
+          unzip -l Tankobon.apk | grep -E 'lib/|AndroidManifest'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: Tankobon.apk
+
+  android-emulator:
+    name: Android smoke test (emulator)
+    needs: android
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install, launch and check it stays up
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: |
+            adb install -r Tankobon.apk
+            adb shell am start -W -n org.tankobon.app/android.app.NativeActivity
+            sleep 20
+            adb shell pidof org.tankobon.app
+            adb exec-out screencap -p > android-screen.png
+            adb logcat -d | grep -iE 'tankobon|RustStdoutStderr|FATAL' | tail -n 50 || true
+            adb shell pidof org.tankobon.app
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-screenshot
+          path: android-screen.png
+          if-no-files-found: ignore
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [check, linux, windows, android, android-emulator]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Tankobon $GITHUB_REF_NAME" --generate-notes \
+            dist/Tankobon-x86_64.AppImage dist/Tankobon-x86_64.exe dist/Tankobon.apk

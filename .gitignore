@@ -1,0 +1,19 @@
+# Build output
+/target/
+**/*.rs.bk
+
+# Packaging
+/AppDir/
+*.AppImage
+*.apk
+*.keystore
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local tooling
+/.claude/

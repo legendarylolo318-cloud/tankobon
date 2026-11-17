@@ -1,0 +1,62 @@
+export struct MangaCard {
+    id: int,
+    title: string,
+    cover: image,
+    has-cover: bool,
+    unread: int,
+    new-count: int,
+    selected: bool,
+    in-library: bool,
+}
+
+export struct ChapterRow {
+    id: int,
+    title: string,
+    sub: string,
+    read: bool,
+    in-progress: bool,
+    downloaded: bool,
+    // 0 none, 1 queued, 2 downloading, 3 paused, 4 failed
+    dl-state: int,
+    progress: float,
+    selected: bool,
+}
+
+export struct ListRow {
+    chapter-id: int,
+    manga-id: int,
+    title: string,
+    subtitle: string,
+    when: string,
+    cover: image,
+    has-cover: bool,
+}
+
+export struct DownloadRow {
+    chapter-id: int,
+    title: string,
+    subtitle: string,
+    state: string,
+    progress: float,
+    paused: bool,
+    failed: bool,
+}
+
+export struct NamedItem {
+    id: int,
+    name: string,
+    checked: bool,
+}
+
+export struct SourceItem {
+    id: string,
+    name: string,
+}
+
+export struct WebtoonItem {
+    index: int,
+    y: length,
+    h: length,
+    img: image,
+    loaded: bool,
+}

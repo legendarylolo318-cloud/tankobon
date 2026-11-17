@@ -1,0 +1,132 @@
+import { State, Actions } from "globals.slint";
+import { CardGrid, MangaCardView, PageTitle, Chip, SmallButton, Spinner } from "widgets.slint";
+import { LineEdit, ListView , Palette } from "std-widgets.slint";
+
+export component ExplorerView inherits Rectangle {
+    if State.current-source < 0: VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+        PageTitle {
+            text: "Explorer";
+        }
+        Text {
+            text: "Choose a source to browse.";
+            color: Palette.foreground.with-alpha(0.7);
+        }
+        for s[i] in State.sources: Rectangle {
+            height: 56px;
+            border-radius: 8px;
+            background: Palette.alternate-background;
+            max-width: 520px;
+            Text {
+                x: 16px;
+                text: s.name;
+                font-size: 16px;
+                vertical-alignment: center;
+                color: Palette.foreground;
+            }
+            Text {
+                x: parent.width - self.width - 16px;
+                text: s.id == "local" ? "Folders & CBZ/CBR/CB7" : "Online";
+                vertical-alignment: center;
+                color: Palette.foreground.with-alpha(0.6);
+            }
+            ta := TouchArea {
+                clicked => {
+                    Actions.open-source(i);
+                }
+            }
+            states [
+                hover when ta.has-hover: {
+                    background: Palette.alternate-background.brighter(0.15);
+                }
+            ]
+        }
+        Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+    if State.current-source >= 0: VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            SmallButton {
+                text: "← Sources";
+                clicked => {
+                    State.current-source = -1;
+                }
+            }
+            PageTitle {
+                text: State.source-name;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Chip {
+                text: "Latest";
+                active: State.explorer-mode == 0;
+                clicked => {
+                    Actions.explorer-load(0, "");
+                }
+            }
+            Chip {
+                text: "Popular";
+                active: State.explorer-mode == 1;
+                clicked => {
+                    Actions.explorer-load(1, "");
+                }
+            }
+            search := LineEdit {
+                placeholder-text: "Search " + State.source-name;
+                width: 260px;
+                text <=> State.explorer-query;
+                accepted(t) => {
+                    Actions.explorer-load(2, t);
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            CardGrid {
+                model: State.explorer-items;
+                show-library-mark: true;
+                need-cover(id) => {
+                    Actions.need-explorer-cover(id);
+                }
+                clicked(id) => {
+                    Actions.open-explorer-item(id);
+                }
+            }
+            if State.explorer-loading: Rectangle {
+                y: parent.height - 44px;
+                height: 36px;
+                width: 140px;
+                x: (parent.width - self.width) / 2;
+                background: Palette.alternate-background;
+                border-radius: 18px;
+                Spinner {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            if State.explorer-error != "" && State.explorer-items.length == 0: Text {
+                text: State.explorer-error;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: #e53935;
+            }
+        }
+        if State.explorer-has-more && !State.explorer-loading: HorizontalLayout {
+            alignment: center;
+            SmallButton {
+                text: "Load more";
+                clicked => {
+                    Actions.explorer-more();
+                }
+            }
+        }
+    }
+}

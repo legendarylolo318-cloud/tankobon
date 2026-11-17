@@ -1,0 +1,261 @@
+import { MangaCard } from "structs.slint";
+import { Button , Palette } from "std-widgets.slint";
+
+export component Cover inherits Rectangle {
+    in property <image> source;
+    in property <bool> loaded;
+    background: Palette.alternate-background;
+    border-radius: 6px;
+    clip: true;
+    if root.loaded: Image {
+        source: root.source;
+        image-fit: cover;
+        width: parent.width;
+        height: parent.height;
+    }
+    if !root.loaded: Text {
+        text: "…";
+        color: Palette.foreground.with-alpha(0.4);
+        font-size: 20px;
+    }
+}
+
+export component Badge inherits Rectangle {
+    in property <string> text;
+    in property <brush> fill: Palette.accent-background;
+    in property <brush> ink: Palette.accent-foreground;
+    background: root.fill;
+    border-radius: 9px;
+    height: 18px;
+    width: max(18px, l.preferred-width + 10px);
+    l := Text {
+        text: root.text;
+        color: root.ink;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> active: false;
+    callback clicked();
+    height: 30px;
+    border-radius: 15px;
+    background: root.active ? Palette.accent-background : Palette.control-background;
+    border-width: 1px;
+    border-color: root.active ? Palette.accent-background : Palette.border;
+    width: l.preferred-width + 24px;
+    l := Text {
+        text: root.text;
+        color: root.active ? Palette.accent-foreground : Palette.foreground;
+        font-size: 13px;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        width: parent.width;
+    }
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+    states [
+        hover when ta.has-hover && !root.active: {
+            background: Palette.control-background.brighter(0.1);
+        }
+    ]
+}
+
+export component PageTitle inherits Text {
+    font-size: 22px;
+    font-weight: 700;
+    color: Palette.foreground;
+}
+
+export component MangaCardView inherits Rectangle {
+    in property <MangaCard> card;
+    in property <bool> select-mode: false;
+    in property <bool> show-library-mark: false;
+    in property <bool> active: true;
+    callback clicked();
+    callback context();
+    callback need-cover();
+    width: 160px;
+    height: 262px;
+    background: transparent;
+    if root.active: VerticalLayout {
+        padding: 6px;
+        spacing: 4px;
+        cv := Cover {
+            init => {
+                root.need-cover();
+            }
+            vertical-stretch: 1;
+            source: root.card.cover;
+            loaded: root.card.has-cover;
+            if root.card.unread > 0: Badge {
+                x: 5px;
+                y: 5px;
+                text: "\{root.card.unread}";
+            }
+            if root.card.new-count > 0: Badge {
+                x: parent.width - self.width - 5px;
+                y: 5px;
+                text: "NEW";
+                fill: #e53935;
+                ink: white;
+            }
+            if root.show-library-mark && root.card.in-library: Badge {
+                x: 5px;
+                y: parent.height - self.height - 5px;
+                text: "In library";
+                fill: #2e7d32;
+                ink: white;
+            }
+            if root.card.selected: Rectangle {
+                background: Palette.accent-background.with-alpha(0.45);
+                border-width: 3px;
+                border-color: Palette.accent-background;
+                border-radius: 6px;
+            }
+            if root.select-mode: Rectangle {
+                x: parent.width - 26px;
+                y: parent.height - 26px;
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                background: root.card.selected ? Palette.accent-background : Palette.background.with-alpha(0.8);
+                border-width: 2px;
+                border-color: Palette.accent-background;
+                Text {
+                    text: root.card.selected ? "✓" : "";
+                    color: Palette.accent-foreground;
+                    font-size: 12px;
+                }
+            }
+        }
+        Text {
+            text: root.card.title;
+            font-size: 12px;
+            height: 32px;
+            wrap: word-wrap;
+            overflow: elide;
+            color: Palette.foreground;
+        }
+    }
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+        pointer-event(e) => {
+            if e.button == PointerEventButton.right && e.kind == PointerEventKind.down {
+                root.context();
+            }
+        }
+    }
+    states [
+        hover when ta.has-hover: {
+            background: Palette.foreground.with-alpha(0.06);
+        }
+    ]
+}
+
+export component SectionLabel inherits Text {
+    font-size: 13px;
+    font-weight: 700;
+    color: Palette.accent-background;
+}
+
+export component Spinner inherits Text {
+    text: "Loading…";
+    color: Palette.foreground.with-alpha(0.6);
+    font-size: 14px;
+}
+
+export component ProgressBar inherits Rectangle {
+    in property <float> value;
+    height: 6px;
+    border-radius: 3px;
+    background: Palette.foreground.with-alpha(0.15);
+    Rectangle {
+        x: 0;
+        width: parent.width * clamp(root.value, 0, 1);
+        background: Palette.accent-background;
+        border-radius: 3px;
+    }
+}
+
+export component SmallButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> danger: false;
+    callback clicked();
+    height: 30px;
+    width: l.preferred-width + 22px;
+    border-radius: 5px;
+    background: Palette.control-background;
+    border-width: 1px;
+    border-color: root.danger ? #e53935 : Palette.border;
+    opacity: root.enabled ? 1 : 0.4;
+    l := Text {
+        text: root.text;
+        font-size: 13px;
+        color: root.danger ? #e53935 : Palette.control-foreground;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+    states [
+        hover when ta.has-hover && root.enabled: {
+            background: Palette.control-background.brighter(0.12);
+        }
+    ]
+}
+
+// Scrollable grid of manga cards. Off-screen cells stay empty so covers load lazily.
+export component CardGrid inherits Rectangle {
+    in property <[MangaCard]> model;
+    in property <bool> select-mode: false;
+    in property <bool> show-library-mark: false;
+    callback clicked(int);
+    callback context(int);
+    callback need-cover(int);
+    property <length> cell-w: 168px;
+    property <length> cell-h: 266px;
+    property <int> cols: max(1, floor(root.width / root.cell-w));
+    property <length> pad: (root.width - root.cols * root.cell-w) / 2;
+    clip: true;
+    fl := Flickable {
+        content-width: root.width;
+        content-height: max(root.height, ceil(root.model.length / root.cols) * root.cell-h);
+        for card[i] in root.model: MangaCardView {
+            x: root.pad + mod(i, root.cols) * root.cell-w;
+            y: floor(i / root.cols) * root.cell-h;
+            width: root.cell-w;
+            height: root.cell-h;
+            card: card;
+            select-mode: root.select-mode;
+            show-library-mark: root.show-library-mark;
+            active: self.y + root.cell-h > -fl.content-y - 300px && self.y < -fl.content-y + fl.height + 300px;
+            need-cover => {
+                root.need-cover(card.id);
+            }
+            clicked => {
+                root.clicked(card.id);
+            }
+            context => {
+                root.context(card.id);
+            }
+        }
+    }
+}

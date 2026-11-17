@@ -1,0 +1,526 @@
+import { State, Actions } from "globals.slint";
+import { SmallButton } from "widgets.slint";
+import { ComboBox, Switch , Palette } from "std-widgets.slint";
+
+// One page image with the selected scaling mode; scrollable when larger than the viewport.
+component PageView inherits Rectangle {
+    in property <image> source;
+    in property <bool> loaded;
+    in property <int> scaling;
+    property <length> iw: max(1px, root.source.width * 1phx);
+    property <length> ih: max(1px, root.source.height * 1phx);
+    property <float> fit: min(root.width / root.iw, root.height / root.ih);
+    property <length> cw: root.scaling == 0 ? root.width : root.scaling == 1 ? root.height * root.iw / root.ih : root.scaling == 2 ? root.iw : root.iw * root.fit;
+    property <length> ch: root.scaling == 0 ? root.width * root.ih / root.iw : root.scaling == 1 ? root.height : root.scaling == 2 ? root.ih : root.ih * root.fit;
+    clip: true;
+
+    /// Scrolls vertically; returns false when already at the edge (or nothing to scroll).
+    public function scroll-v(dy: length) -> bool {
+        let room = fl.content-height - fl.height;
+        if room <= 1px {
+            return false;
+        }
+        let ny = clamp(fl.content-y + dy, -room, 0px);
+        if ny == fl.content-y {
+            return false;
+        }
+        fl.content-y = ny;
+        return true;
+    }
+
+    public function reset() {
+        fl.content-y = 0px;
+        fl.content-x = 0px;
+    }
+
+    fl := Flickable {
+        content-width: max(root.width, root.cw);
+        content-height: max(root.height, root.ch);
+        if root.loaded: Image {
+            source: root.source;
+            x: (max(root.width, root.cw) - root.cw) / 2;
+            y: (max(root.height, root.ch) - root.ch) / 2;
+            width: root.cw;
+            height: root.ch;
+        }
+    }
+}
+
+component SeekBar inherits Rectangle {
+    in property <int> value;
+    in property <int> total;
+    in property <bool> reversed: false;
+    callback seek(int);
+    height: 28px;
+    property <float> frac: root.total > 1 ? root.value / (root.total - 1) : 0;
+    Rectangle {
+        y: (parent.height - 6px) / 2;
+        height: 6px;
+        border-radius: 3px;
+        background: #ffffff40;
+        Rectangle {
+            x: root.reversed ? parent.width * (1 - root.frac) : 0px;
+            width: root.reversed ? parent.width * root.frac : parent.width * root.frac;
+            background: #4fc3f7;
+            border-radius: 3px;
+        }
+        Rectangle {
+            x: (root.reversed ? parent.width * (1 - root.frac) : parent.width * root.frac) - 7px;
+            y: -4px;
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            background: white;
+        }
+    }
+    ta := TouchArea {
+        function pos-to-page() -> int {
+            let f = clamp(self.mouse-x / self.width, 0, 1);
+            let g = root.reversed ? 1 - f : f;
+            return round(g * max(0, root.total - 1));
+        }
+        clicked => {
+            root.seek(self.pos-to-page());
+        }
+    }
+}
+
+export component ReaderView inherits Rectangle {
+    property <color> bg: State.r-bg == 0 ? #000000 : State.r-bg == 1 ? #2b2b2b : State.r-bg == 2 ? #ffffff : #f4ecd8;
+    property <color> hud-ink: white;
+    property <length> wheel-acc: 0px;
+    background: root.bg;
+    // RTL: the first page of a spread sits on the right
+    property <bool> rtl: State.r-mode == 0;
+
+    function step-forward() {
+        Actions.reader-next();
+    }
+    function step-back() {
+        Actions.reader-prev();
+    }
+    function wt-scroll(dy: length) {
+        let room = wt.content-height - wt.height;
+        if room > 0px {
+            wt.content-y = clamp(wt.content-y + dy, -room, 0px);
+        }
+    }
+
+    init => {
+        fs.focus();
+    }
+
+    changed width => {
+        Actions.reader-resized();
+    }
+    changed height => {
+        Actions.reader-resized();
+    }
+
+    // ---- paged modes
+    Rectangle {
+        visible: State.r-mode != 3;
+        pa := PageView {
+            x: State.r-double && State.r-has2 ? (root.rtl ? parent.width / 2 : 0px) : 0px;
+            width: State.r-double && State.r-has2 ? parent.width / 2 : parent.width;
+            height: parent.height;
+            source: State.r-img1;
+            loaded: State.r-has1;
+            scaling: State.r-double && State.r-has2 && State.r-scaling == 0 ? 3 : State.r-scaling;
+            changed source => {
+                self.reset();
+            }
+        }
+        pb := PageView {
+            visible: State.r-double && State.r-has2;
+            x: root.rtl ? 0px : parent.width / 2;
+            width: parent.width / 2;
+            height: parent.height;
+            source: State.r-img2;
+            loaded: State.r-has2;
+            scaling: State.r-scaling == 0 ? 3 : State.r-scaling;
+        }
+        TouchArea {
+            clicked => {
+                if self.mouse-x < self.width * 0.3 {
+                    if root.rtl {
+                        root.step-forward();
+                    } else {
+                        root.step-back();
+                    }
+                } else if self.mouse-x > self.width * 0.7 {
+                    if root.rtl {
+                        root.step-back();
+                    } else {
+                        root.step-forward();
+                    }
+                } else {
+                    State.r-menu = !State.r-menu;
+                }
+            }
+            scroll-event(e) => {
+                let moved = pa.scroll-v(e.delta-y);
+                if !moved {
+                    root.wheel-acc += e.delta-y;
+                    if root.wheel-acc > 40px {
+                        root.wheel-acc = 0px;
+                        root.step-back();
+                    } else if root.wheel-acc < -40px {
+                        root.wheel-acc = 0px;
+                        root.step-forward();
+                    }
+                } else {
+                    root.wheel-acc = 0px;
+                }
+                return accept;
+            }
+        }
+    }
+
+    // ---- webtoon (continuous scroll)
+    wt := Flickable {
+        visible: State.r-mode == 3;
+        content-width: self.width;
+        content-height: max(State.wt-total-h, self.height);
+        changed content-y => {
+            Actions.reader-webtoon-scrolled(-self.content-y, self.height, self.width);
+        }
+        changed width => {
+            Actions.reader-webtoon-scrolled(-self.content-y, self.height, self.width);
+        }
+        init => {
+            Actions.reader-webtoon-scrolled(0px, self.height, self.width);
+        }
+        for it in State.wt-items: Rectangle {
+            x: 0px;
+            y: it.y;
+            width: wt.width;
+            height: it.h;
+            if it.loaded: Image {
+                source: it.img;
+                width: parent.width;
+                height: parent.height;
+            }
+            if !it.loaded: Text {
+                text: "Page \{it.index + 1}";
+                color: #888888;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        TouchArea {
+            width: wt.width;
+            height: max(State.wt-total-h, wt.height);
+            clicked => {
+                State.r-menu = !State.r-menu;
+            }
+        }
+    }
+
+    // webtoon jump requests from Rust
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        property <int> seq: State.wt-goto-seq;
+        changed seq => {
+            if State.r-mode == 3 {
+                root.wt-scroll(-(State.wt-goto) - wt.content-y);
+            }
+        }
+    }
+
+    if State.r-loading && State.r-error == "": Text {
+        text: "Loading…";
+        color: #888888;
+        font-size: 16px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if State.r-error != "": Text {
+        text: State.r-error;
+        color: #ef5350;
+        font-size: 15px;
+        wrap: word-wrap;
+        x: 40px;
+        width: parent.width - 80px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // page number overlay
+    if State.pref-page-number && State.r-total > 0 && !State.r-menu: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 34px;
+        width: pn.preferred-width + 20px;
+        height: 24px;
+        border-radius: 12px;
+        background: #000000a0;
+        pn := Text {
+            text: (State.r-has2 ? "\{State.r-page + 1}-\{State.r-page + 2}" : "\{State.r-page + 1}") + " / \{State.r-total}";
+            color: white;
+            font-size: 12px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: parent.width;
+        }
+    }
+
+    // keyboard
+    fs := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                if State.r-settings-open {
+                    State.r-settings-open = false;
+                } else if State.r-fullscreen {
+                    Actions.reader-fullscreen-toggled();
+                } else {
+                    Actions.reader-close();
+                }
+                return accept;
+            }
+            if event.text == "f" || event.text == "F" || event.text == Key.F11 {
+                Actions.reader-fullscreen-toggled();
+                return accept;
+            }
+            if event.text == "m" || event.text == "M" {
+                State.r-menu = !State.r-menu;
+                return accept;
+            }
+            if event.text == Key.Home {
+                Actions.reader-seek(0);
+                return accept;
+            }
+            if event.text == Key.End {
+                Actions.reader-seek(State.r-total - 1);
+                return accept;
+            }
+            if State.r-mode == 3 {
+                if event.text == Key.DownArrow {
+                    root.wt-scroll(-80px);
+                } else if event.text == Key.UpArrow {
+                    root.wt-scroll(80px);
+                } else if event.text == Key.PageDown || event.text == Key.Space {
+                    root.wt-scroll(-(wt.height * 0.9));
+                } else if event.text == Key.PageUp {
+                    root.wt-scroll(wt.height * 0.9);
+                } else if event.text == Key.RightArrow {
+                    Actions.reader-chapter(1);
+                } else if event.text == Key.LeftArrow {
+                    Actions.reader-chapter(-1);
+                } else {
+                    return reject;
+                }
+                return accept;
+            }
+            if event.text == Key.LeftArrow {
+                if root.rtl {
+                    root.step-forward();
+                } else {
+                    root.step-back();
+                }
+            } else if event.text == Key.RightArrow {
+                if root.rtl {
+                    root.step-back();
+                } else {
+                    root.step-forward();
+                }
+            } else if event.text == Key.DownArrow || event.text == Key.PageDown || event.text == Key.Space {
+                root.step-forward();
+            } else if event.text == Key.UpArrow || event.text == Key.PageUp || event.text == Key.Backspace {
+                root.step-back();
+            } else {
+                return reject;
+            }
+            return accept;
+        }
+    }
+
+    // ---- menu bars
+    if State.r-menu: Rectangle {
+        y: 0px;
+        height: 56px;
+        background: #000000d0;
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 10px;
+            SmallButton {
+                text: "← Back";
+                clicked => {
+                    Actions.reader-close();
+                }
+            }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                Text {
+                    text: State.r-title;
+                    color: white;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+                Text {
+                    text: State.r-chapter;
+                    color: #cccccc;
+                    font-size: 12px;
+                    overflow: elide;
+                }
+            }
+            SmallButton {
+                text: "⏮ Prev chapter";
+                enabled: State.r-has-prev-chapter;
+                clicked => {
+                    Actions.reader-chapter(-1);
+                }
+            }
+            SmallButton {
+                text: "Next chapter ⏭";
+                enabled: State.r-has-next-chapter;
+                clicked => {
+                    Actions.reader-chapter(1);
+                }
+            }
+            SmallButton {
+                text: "⛶ Fullscreen";
+                clicked => {
+                    Actions.reader-fullscreen-toggled();
+                }
+            }
+            SmallButton {
+                text: "⚙ Settings";
+                clicked => {
+                    State.r-settings-open = !State.r-settings-open;
+                }
+            }
+        }
+    }
+    if State.r-menu: Rectangle {
+        y: parent.height - 52px;
+        height: 52px;
+        background: #000000d0;
+        HorizontalLayout {
+            padding: 12px;
+            spacing: 12px;
+            Text {
+                text: "\{State.r-page + 1}";
+                color: white;
+                vertical-alignment: center;
+                width: 40px;
+                horizontal-alignment: right;
+            }
+            SeekBar {
+                horizontal-stretch: 1;
+                value: State.r-page;
+                total: State.r-total;
+                reversed: State.r-mode == 0;
+                seek(p) => {
+                    Actions.reader-seek(p);
+                }
+            }
+            Text {
+                text: "\{State.r-total}";
+                color: white;
+                vertical-alignment: center;
+                width: 40px;
+            }
+        }
+    }
+
+    // ---- settings panel
+    if State.r-settings-open: Rectangle {
+        x: parent.width - 320px;
+        y: 56px;
+        width: 320px;
+        height: min(parent.height - 56px - 52px, 420px);
+        background: #1e1e1eee;
+        border-radius: 0px;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: "Reader settings";
+                color: white;
+                font-weight: 700;
+                font-size: 15px;
+            }
+            Text {
+                text: "Reading mode";
+                color: #cccccc;
+                font-size: 12px;
+            }
+            ComboBox {
+                model: ["Right to left", "Left to right", "Vertical", "Webtoon"];
+                current-index <=> State.r-mode;
+                selected(v) => {
+                    Actions.reader-settings-changed();
+                }
+            }
+            Text {
+                text: "Image scaling";
+                color: #cccccc;
+                font-size: 12px;
+            }
+            ComboBox {
+                model: ["Fit width", "Fit height", "Original size", "Fit screen"];
+                current-index <=> State.r-scaling;
+                selected(v) => {
+                    Actions.reader-settings-changed();
+                }
+            }
+            Text {
+                text: "Background";
+                color: #cccccc;
+                font-size: 12px;
+            }
+            ComboBox {
+                model: ["Black", "Dark gray", "White", "Sepia"];
+                current-index <=> State.r-bg;
+                selected(v) => {
+                    Actions.reader-settings-changed();
+                }
+            }
+            HorizontalLayout {
+                Text {
+                    text: "Double page";
+                    color: white;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Switch {
+                    checked <=> State.r-double;
+                    toggled => {
+                        Actions.reader-settings-changed();
+                    }
+                }
+            }
+            HorizontalLayout {
+                Text {
+                    text: "Crop white borders";
+                    color: white;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Switch {
+                    checked <=> State.r-crop;
+                    toggled => {
+                        Actions.reader-settings-changed();
+                    }
+                }
+            }
+            HorizontalLayout {
+                Text {
+                    text: "Only for this manga";
+                    color: white;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Switch {
+                    checked: State.r-override;
+                    toggled => {
+                        Actions.reader-override-toggled(self.checked);
+                    }
+                }
+            }
+        }
+    }
+}

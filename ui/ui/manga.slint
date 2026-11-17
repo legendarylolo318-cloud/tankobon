@@ -1,0 +1,332 @@
+import { ChapterRow } from "structs.slint";
+import { State, Actions } from "globals.slint";
+import { Cover, Chip, SmallButton, Spinner, ProgressBar, SectionLabel } from "widgets.slint";
+import { ListView, CheckBox, Button , Palette } from "std-widgets.slint";
+
+component ChapterRowView inherits Rectangle {
+    in property <ChapterRow> item;
+    callback open();
+    callback toggle();
+    callback download();
+    height: 52px;
+    background: root.item.selected ? Palette.accent-background.with-alpha(0.2) : transparent;
+    ta := TouchArea {
+        clicked => {
+            root.open();
+        }
+    }
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 10px;
+        spacing: 8px;
+        Rectangle {
+            width: 36px;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: Palette.accent-background;
+                background: root.item.selected ? Palette.accent-background : transparent;
+                Text {
+                    text: root.item.selected ? "✓" : "";
+                    color: Palette.accent-foreground;
+                    font-size: 13px;
+                }
+            }
+            TouchArea {
+                clicked => {
+                    root.toggle();
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.item.title;
+                overflow: elide;
+                font-size: 14px;
+                font-weight: root.item.read ? 400 : 700;
+                color: root.item.read ? Palette.foreground.with-alpha(0.5) : Palette.foreground;
+            }
+            Text {
+                text: root.item.sub;
+                overflow: elide;
+                font-size: 12px;
+                color: Palette.foreground.with-alpha(0.55);
+            }
+        }
+        if root.item.in-progress && !root.item.read: Text {
+            text: "in progress";
+            vertical-alignment: center;
+            font-size: 12px;
+            color: Palette.accent-background;
+        }
+        if root.item.dl-state == 2: VerticalLayout {
+            alignment: center;
+            width: 90px;
+            spacing: 3px;
+            Text {
+                text: "Downloading";
+                font-size: 11px;
+                color: Palette.foreground.with-alpha(0.7);
+                horizontal-alignment: center;
+            }
+            ProgressBar {
+                value: root.item.progress;
+            }
+        }
+        if root.item.dl-state == 1: Text {
+            text: "Queued";
+            vertical-alignment: center;
+            font-size: 12px;
+            color: Palette.foreground.with-alpha(0.7);
+        }
+        if root.item.dl-state == 3: Text {
+            text: "Paused";
+            vertical-alignment: center;
+            font-size: 12px;
+            color: Palette.foreground.with-alpha(0.7);
+        }
+        if root.item.dl-state == 4: Text {
+            text: "Failed";
+            vertical-alignment: center;
+            font-size: 12px;
+            color: #e53935;
+        }
+        if root.item.downloaded: Text {
+            text: "⬇ saved";
+            vertical-alignment: center;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+        if !root.item.downloaded && root.item.dl-state == 0 && !State.m-local: SmallButton {
+            text: "⬇";
+            y: (parent.height - self.height) / 2;
+            clicked => {
+                root.download();
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Palette.border.with-alpha(0.4);
+    }
+}
+
+export component MangaView inherits Rectangle {
+    background: Palette.background;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            SmallButton {
+                text: "← Back";
+                clicked => {
+                    Actions.close-manga();
+                }
+            }
+            Text {
+                text: State.m-title;
+                font-size: 20px;
+                font-weight: 700;
+                overflow: elide;
+                vertical-alignment: center;
+                color: Palette.foreground;
+                horizontal-stretch: 1;
+            }
+            SmallButton {
+                text: "⟳ Refresh";
+                enabled: !State.m-loading;
+                clicked => {
+                    Actions.refresh-manga();
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 18px;
+            height: 270px;
+            Cover {
+                width: 180px;
+                source: State.m-cover;
+                loaded: State.m-has-cover;
+            }
+            VerticalLayout {
+                spacing: 6px;
+                horizontal-stretch: 1;
+                Text {
+                    text: State.m-authors != "" ? State.m-authors : "Unknown author";
+                    color: Palette.foreground.with-alpha(0.8);
+                    font-size: 14px;
+                    overflow: elide;
+                }
+                Text {
+                    text: State.m-status + "  ·  " + State.m-source;
+                    color: Palette.foreground.with-alpha(0.6);
+                    font-size: 13px;
+                }
+                Text {
+                    text: State.m-genres;
+                    color: Palette.accent-background;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                    max-height: 36px;
+                    overflow: elide;
+                }
+                Rectangle {
+                    vertical-stretch: 1;
+                    clip: true;
+                    Flickable {
+                        content-height: desc.preferred-height;
+                        desc := Text {
+                            width: parent.width;
+                            text: State.m-description != "" ? State.m-description : "No synopsis available.";
+                            wrap: word-wrap;
+                            font-size: 13px;
+                            color: Palette.foreground.with-alpha(0.85);
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    height: 34px;
+                    alignment: start;
+                    Button {
+                        text: State.resume-label;
+                        primary: true;
+                        enabled: State.chapters.length > 0;
+                        clicked => {
+                            Actions.resume-reading();
+                        }
+                    }
+                    Button {
+                        text: State.m-in-library ? "✓ In library" : "+ Add to library";
+                        clicked => {
+                            Actions.toggle-library();
+                        }
+                    }
+                    if !State.m-local: Button {
+                        text: "Download unread";
+                        enabled: State.chapters.length > 0;
+                        clicked => {
+                            Actions.download-all-unread();
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            height: 34px;
+            SectionLabel {
+                text: "\{State.chapters.length} chapters";
+                vertical-alignment: center;
+            }
+            if State.m-loading: Spinner {
+                vertical-alignment: center;
+            }
+            if State.m-error != "": Text {
+                text: State.m-error;
+                color: #e53935;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Chip {
+                text: State.hide-read ? "Unread only" : "All chapters";
+                active: State.hide-read;
+                clicked => {
+                    State.hide-read = !State.hide-read;
+                    Actions.chapters-sort-changed();
+                }
+            }
+            Chip {
+                text: State.chapters-desc ? "Newest first ▼" : "Oldest first ▲";
+                clicked => {
+                    State.chapters-desc = !State.chapters-desc;
+                    Actions.chapters-sort-changed();
+                }
+            }
+        }
+        if State.chapter-selected-count > 0: Rectangle {
+            height: 44px;
+            background: Palette.alternate-background;
+            border-radius: 6px;
+            HorizontalLayout {
+                padding: 7px;
+                spacing: 8px;
+                Text {
+                    text: "\{State.chapter-selected-count} selected";
+                    vertical-alignment: center;
+                    font-weight: 700;
+                    color: Palette.foreground;
+                }
+                SmallButton {
+                    text: "All";
+                    clicked => {
+                        Actions.chapters-select-all();
+                    }
+                }
+                SmallButton {
+                    text: "Mark read";
+                    clicked => {
+                        Actions.chapters-mark-read(true);
+                    }
+                }
+                SmallButton {
+                    text: "Mark unread";
+                    clicked => {
+                        Actions.chapters-mark-read(false);
+                    }
+                }
+                SmallButton {
+                    text: "Mark previous read";
+                    clicked => {
+                        Actions.chapters-mark-previous-read();
+                    }
+                }
+                if !State.m-local: SmallButton {
+                    text: "Download";
+                    clicked => {
+                        Actions.chapters-download();
+                    }
+                }
+                if !State.m-local: SmallButton {
+                    text: "Delete downloads";
+                    danger: true;
+                    clicked => {
+                        Actions.chapters-delete-downloads();
+                    }
+                }
+                SmallButton {
+                    text: "Clear";
+                    clicked => {
+                        Actions.chapters-clear-selection();
+                    }
+                }
+            }
+        }
+        ListView {
+            vertical-stretch: 1;
+            for row in State.chapters: ChapterRowView {
+                item: row;
+                open => {
+                    Actions.chapter-open(row.id);
+                }
+                toggle => {
+                    Actions.chapter-toggle-select(row.id);
+                }
+                download => {
+                    Actions.chapter-download-one(row.id);
+                }
+            }
+        }
+    }
+}

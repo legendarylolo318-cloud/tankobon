@@ -1,0 +1,194 @@
+import { MangaCard, ChapterRow, ListRow, DownloadRow, NamedItem, SourceItem, WebtoonItem } from "structs.slint";
+
+export global State {
+    // ---- navigation
+    // 0 library, 1 explorer, 2 updates, 3 history, 4 downloads, 5 preferences
+    in-out property <int> view: 0;
+    // 0 none, 1 manga page, 2 reader
+    in-out property <int> overlay: 0;
+    // 0 none, 1 move to category, 2 manage categories, 3 confirm remove from library
+    in-out property <int> dialog: 0;
+    in-out property <string> toast;
+    in-out property <string> busy-text;
+
+    // ---- library
+    in-out property <[MangaCard]> library;
+    in-out property <[NamedItem]> categories;
+    // 0 = All, 1 = Uncategorized, 2.. = categories[idx-2]
+    in-out property <int> category-index: 0;
+    in-out property <string> library-search;
+    in-out property <int> library-sort: 0;
+    in-out property <bool> library-sort-desc: false;
+    in-out property <bool> select-mode: false;
+    in-out property <int> selected-count: 0;
+    in-out property <bool> library-loading: false;
+    in-out property <bool> remove-delete-files: false;
+
+    // ---- explorer
+    in-out property <[SourceItem]> sources;
+    in-out property <int> current-source: -1;
+    in-out property <string> source-name;
+    // 0 latest, 1 popular, 2 search
+    in-out property <int> explorer-mode: 0;
+    in-out property <string> explorer-query;
+    in-out property <[MangaCard]> explorer-items;
+    in-out property <bool> explorer-loading: false;
+    in-out property <bool> explorer-has-more: false;
+    in-out property <string> explorer-error;
+
+    // ---- manga page
+    in-out property <int> m-id;
+    in-out property <string> m-title;
+    in-out property <image> m-cover;
+    in-out property <bool> m-has-cover: false;
+    in-out property <string> m-description;
+    in-out property <string> m-authors;
+    in-out property <string> m-genres;
+    in-out property <string> m-status;
+    in-out property <string> m-source;
+    in-out property <bool> m-in-library: false;
+    in-out property <bool> m-loading: false;
+    in-out property <string> m-error;
+    in-out property <[ChapterRow]> chapters;
+    in-out property <bool> chapters-desc: true;
+    in-out property <bool> hide-read: false;
+    in-out property <string> resume-label: "Start reading";
+    in-out property <int> chapter-selected-count: 0;
+    in-out property <bool> m-local: false;
+
+    // ---- lists
+    in-out property <[ListRow]> history;
+    in-out property <[ListRow]> updates;
+    in-out property <string> update-status;
+    in-out property <bool> updating: false;
+    in-out property <[DownloadRow]> downloads;
+    in-out property <bool> downloads-paused: false;
+
+    // ---- preferences
+    in-out property <int> theme: 2;
+    in-out property <int> pref-mode: 0;
+    in-out property <int> pref-scaling: 3;
+    in-out property <bool> pref-double: false;
+    in-out property <bool> pref-crop: false;
+    in-out property <int> pref-bg: 0;
+    in-out property <bool> pref-page-number: true;
+    in-out property <bool> pref-update-startup: false;
+    in-out property <bool> pref-auto-download: false;
+    in-out property <string> pref-download-dir;
+    in-out property <int> pref-max-downloads: 2;
+    in-out property <int> pref-cache-mb: 256;
+    in-out property <string> cache-size-text;
+    in-out property <string> pref-local-dir;
+    in-out property <string> pref-md-lang: "en";
+    in-out property <bool> pref-md-nsfw: false;
+    in-out property <string> backup-path;
+    in-out property <string> prefs-status;
+
+    // ---- reader
+    in-out property <string> r-title;
+    in-out property <string> r-chapter;
+    in-out property <int> r-page: 0;
+    in-out property <int> r-total: 0;
+    in-out property <int> r-mode: 0;
+    in-out property <int> r-scaling: 3;
+    in-out property <bool> r-double: false;
+    in-out property <bool> r-crop: false;
+    in-out property <int> r-bg: 0;
+    in-out property <bool> r-override: false;
+    in-out property <bool> r-menu: false;
+    in-out property <bool> r-settings-open: false;
+    in-out property <bool> r-loading: true;
+    in-out property <string> r-error;
+    in-out property <bool> r-fullscreen: false;
+    in-out property <bool> r-has-prev-chapter: false;
+    in-out property <bool> r-has-next-chapter: false;
+    in-out property <image> r-img1;
+    in-out property <bool> r-has1: false;
+    in-out property <image> r-img2;
+    in-out property <bool> r-has2: false;
+    in-out property <[WebtoonItem]> wt-items;
+    in-out property <length> wt-total-h: 0px;
+    in-out property <length> wt-goto: 0px;
+    in-out property <int> wt-goto-seq: 0;
+}
+
+export global Actions {
+    // navigation / generic
+    callback show-view(int);
+    callback dismiss-toast();
+
+    // library
+    callback library-refresh();
+    callback need-cover(int);
+    callback open-manga(int);
+    callback card-clicked(int);
+    callback card-context(int);
+    callback select-all();
+    callback clear-selection();
+    callback selection-mark-read(bool);
+    callback selection-download();
+    callback selection-remove(bool);
+    callback selection-move(int);
+    callback add-category(string);
+    callback delete-category(int);
+    callback rename-category(int, string);
+    callback update-library();
+
+    // explorer
+    callback open-source(int);
+    callback explorer-load(int, string);
+    callback explorer-more();
+    callback need-explorer-cover(int);
+    callback open-explorer-item(int);
+
+    // manga page
+    callback toggle-library();
+    callback refresh-manga();
+    callback resume-reading();
+    callback chapter-open(int);
+    callback chapter-toggle-select(int);
+    callback chapters-select-all();
+    callback chapters-clear-selection();
+    callback chapters-mark-read(bool);
+    callback chapters-mark-previous-read();
+    callback chapters-download();
+    callback chapters-delete-downloads();
+    callback download-all-unread();
+    callback chapters-sort-changed();
+    callback chapter-download-one(int);
+    callback close-manga();
+
+    // lists
+    callback need-list-cover(int);
+    callback history-open(int);
+    callback history-clear();
+    callback updates-open(int);
+    callback updates-mark-seen();
+    callback download-pause(int);
+    callback download-resume(int);
+    callback download-cancel(int);
+    callback downloads-pause-all();
+    callback downloads-resume-all();
+    callback downloads-cancel-all();
+
+    // preferences
+    callback prefs-changed();
+    callback clear-cache();
+    callback backup-now();
+    callback restore-now();
+    callback browse-backup(bool);
+    callback browse-download-dir();
+    callback browse-local-dir();
+
+    // reader
+    callback reader-next();
+    callback reader-prev();
+    callback reader-seek(int);
+    callback reader-chapter(int);
+    callback reader-close();
+    callback reader-settings-changed();
+    callback reader-override-toggled(bool);
+    callback reader-fullscreen-toggled();
+    callback reader-resized();
+    callback reader-webtoon-scrolled(length, length, length);
+}

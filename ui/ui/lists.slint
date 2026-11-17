@@ -1,0 +1,288 @@
+import { State, Actions } from "globals.slint";
+import { ListRow } from "structs.slint";
+import { Cover, PageTitle, SmallButton, Spinner, ProgressBar } from "widgets.slint";
+import { ListView, Button , Palette } from "std-widgets.slint";
+
+component ListRowView inherits Rectangle {
+    in property <ListRow> item;
+    in property <string> action-text: "Resume";
+    callback clicked();
+    callback open-manga();
+    height: 84px;
+    background: transparent;
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 12px;
+        Cover {
+            width: 50px;
+            source: root.item.cover;
+            loaded: root.item.has-cover;
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.item.title;
+                font-size: 15px;
+                font-weight: 700;
+                overflow: elide;
+                color: Palette.foreground;
+            }
+            Text {
+                text: root.item.subtitle;
+                font-size: 13px;
+                overflow: elide;
+                color: Palette.foreground.with-alpha(0.75);
+            }
+            Text {
+                text: root.item.when;
+                font-size: 12px;
+                color: Palette.foreground.with-alpha(0.5);
+            }
+        }
+        SmallButton {
+            y: (parent.height - self.height) / 2;
+            text: root.action-text;
+            clicked => {
+                root.clicked();
+            }
+        }
+        SmallButton {
+            y: (parent.height - self.height) / 2;
+            text: "Manga page";
+            clicked => {
+                root.open-manga();
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Palette.border.with-alpha(0.4);
+    }
+    states [
+        hover when ta.has-hover: {
+            background: Palette.foreground.with-alpha(0.05);
+        }
+    ]
+}
+
+export component HistoryView inherits Rectangle {
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            PageTitle {
+                text: "History";
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            SmallButton {
+                text: "Clear history";
+                danger: true;
+                enabled: State.history.length > 0;
+                clicked => {
+                    Actions.history-clear();
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                for row in State.history: ListRowView {
+                    item: row;
+                    init => {
+                        Actions.need-list-cover(row.manga-id);
+                    }
+                    clicked => {
+                        Actions.history-open(row.chapter-id);
+                    }
+                    open-manga => {
+                        Actions.open-manga(row.manga-id);
+                    }
+                }
+            }
+            if State.history.length == 0: Text {
+                text: "Nothing read yet.";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.foreground.with-alpha(0.6);
+            }
+        }
+    }
+}
+
+export component UpdatesView inherits Rectangle {
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            PageTitle {
+                text: "Updates";
+                vertical-alignment: center;
+            }
+            Text {
+                text: State.update-status;
+                vertical-alignment: center;
+                color: Palette.foreground.with-alpha(0.7);
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            SmallButton {
+                text: "Mark all seen";
+                enabled: State.updates.length > 0;
+                clicked => {
+                    Actions.updates-mark-seen();
+                }
+            }
+            Button {
+                text: State.updating ? "Checking…" : "Check for updates";
+                primary: true;
+                enabled: !State.updating;
+                clicked => {
+                    Actions.update-library();
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                for row in State.updates: ListRowView {
+                    item: row;
+                    action-text: "Read";
+                    init => {
+                        Actions.need-list-cover(row.manga-id);
+                    }
+                    clicked => {
+                        Actions.updates-open(row.chapter-id);
+                    }
+                    open-manga => {
+                        Actions.open-manga(row.manga-id);
+                    }
+                }
+            }
+            if State.updates.length == 0: Text {
+                text: "No new chapters. Use “Check for updates” to look for some.";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.foreground.with-alpha(0.6);
+            }
+        }
+    }
+}
+
+export component DownloadsView inherits Rectangle {
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 10px;
+            PageTitle {
+                text: "Downloads";
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            SmallButton {
+                text: State.downloads-paused ? "▶ Resume all" : "⏸ Pause all";
+                enabled: State.downloads.length > 0 || State.downloads-paused;
+                clicked => {
+                    if State.downloads-paused {
+                        Actions.downloads-resume-all();
+                    } else {
+                        Actions.downloads-pause-all();
+                    }
+                }
+            }
+            SmallButton {
+                text: "Cancel all";
+                danger: true;
+                enabled: State.downloads.length > 0;
+                clicked => {
+                    Actions.downloads-cancel-all();
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                for d in State.downloads: Rectangle {
+                    height: 70px;
+                    HorizontalLayout {
+                        padding: 8px;
+                        spacing: 12px;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: d.title;
+                                font-weight: 700;
+                                font-size: 14px;
+                                overflow: elide;
+                                color: Palette.foreground;
+                            }
+                            Text {
+                                text: d.subtitle;
+                                font-size: 12px;
+                                overflow: elide;
+                                color: d.failed ? #e53935 : Palette.foreground.with-alpha(0.65);
+                            }
+                            ProgressBar {
+                                value: d.progress;
+                            }
+                        }
+                        Text {
+                            text: d.state;
+                            vertical-alignment: center;
+                            width: 90px;
+                            color: Palette.foreground.with-alpha(0.7);
+                        }
+                        SmallButton {
+                            y: (parent.height - self.height) / 2;
+                            text: d.paused || d.failed ? "▶ Resume" : "⏸ Pause";
+                            clicked => {
+                                if d.paused || d.failed {
+                                    Actions.download-resume(d.chapter-id);
+                                } else {
+                                    Actions.download-pause(d.chapter-id);
+                                }
+                            }
+                        }
+                        SmallButton {
+                            y: (parent.height - self.height) / 2;
+                            text: "✕ Cancel";
+                            danger: true;
+                            clicked => {
+                                Actions.download-cancel(d.chapter-id);
+                            }
+                        }
+                    }
+                    Rectangle {
+                        y: parent.height - 1px;
+                        height: 1px;
+                        background: Palette.border.with-alpha(0.4);
+                    }
+                }
+            }
+            if State.downloads.length == 0: Text {
+                text: "No downloads in the queue.";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.foreground.with-alpha(0.6);
+            }
+        }
+    }
+}
