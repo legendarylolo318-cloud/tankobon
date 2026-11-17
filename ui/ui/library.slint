@@ -32,7 +32,8 @@ export component LibraryView inherits Rectangle {
                 }
             }
             SmallButton {
-                text: State.library-sort-desc ? "▼ Desc" : "▲ Asc";
+                text: State.library-sort-desc ? "Desc" : "Asc";
+                icon: State.library-sort-desc ? @image-url("icons/down.svg") : @image-url("icons/up.svg");
                 clicked => {
                     State.library-sort-desc = !State.library-sort-desc;
                     Actions.library-refresh();

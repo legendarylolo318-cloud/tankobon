@@ -1,6 +1,6 @@
 import { ChapterRow } from "structs.slint";
 import { State, Actions } from "globals.slint";
-import { Cover, Chip, SmallButton, Spinner, ProgressBar, SectionLabel } from "widgets.slint";
+import { Cover, Chip, SmallButton, Spinner, ProgressBar, SectionLabel, Icon } from "widgets.slint";
 import { ListView, CheckBox, Button , Palette } from "std-widgets.slint";
 
 component ChapterRowView inherits Rectangle {
@@ -28,10 +28,11 @@ component ChapterRowView inherits Rectangle {
                 border-width: 2px;
                 border-color: Palette.accent-background;
                 background: root.item.selected ? Palette.accent-background : transparent;
-                Text {
-                    text: root.item.selected ? "✓" : "";
-                    color: Palette.accent-foreground;
-                    font-size: 13px;
+                if root.item.selected: Icon {
+                    width: 14px;
+                    height: 14px;
+                    source: @image-url("icons/check.svg");
+                    tint: Palette.accent-foreground;
                 }
             }
             TouchArea {
@@ -96,14 +97,25 @@ component ChapterRowView inherits Rectangle {
             font-size: 12px;
             color: #e53935;
         }
-        if root.item.downloaded: Text {
-            text: "⬇ saved";
-            vertical-alignment: center;
-            font-size: 12px;
-            color: #2e7d32;
+        if root.item.downloaded: HorizontalLayout {
+            spacing: 4px;
+            alignment: center;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                width: 14px;
+                height: 14px;
+                source: @image-url("icons/download.svg");
+                tint: #2e7d32;
+            }
+            Text {
+                text: "saved";
+                vertical-alignment: center;
+                font-size: 12px;
+                color: #2e7d32;
+            }
         }
         if !root.item.downloaded && root.item.dl-state == 0 && !State.m-local: SmallButton {
-            text: "⬇";
+            icon: @image-url("icons/download.svg");
             y: (parent.height - self.height) / 2;
             clicked => {
                 root.download();
@@ -125,7 +137,8 @@ export component MangaView inherits Rectangle {
         HorizontalLayout {
             spacing: 10px;
             SmallButton {
-                text: "← Back";
+                text: "Back";
+                icon: @image-url("icons/back.svg");
                 clicked => {
                     Actions.close-manga();
                 }
@@ -140,7 +153,8 @@ export component MangaView inherits Rectangle {
                 horizontal-stretch: 1;
             }
             SmallButton {
-                text: "⟳ Refresh";
+                text: "Refresh";
+                icon: @image-url("icons/updates.svg");
                 enabled: !State.m-loading;
                 clicked => {
                     Actions.refresh-manga();
@@ -204,7 +218,8 @@ export component MangaView inherits Rectangle {
                         }
                     }
                     Button {
-                        text: State.m-in-library ? "✓ In library" : "+ Add to library";
+                        text: State.m-in-library ? "In library" : "+ Add to library";
+                        icon: State.m-in-library ? @image-url("icons/check.svg") : @image-url("");
                         clicked => {
                             Actions.toggle-library();
                         }
@@ -248,7 +263,8 @@ export component MangaView inherits Rectangle {
                 }
             }
             Chip {
-                text: State.chapters-desc ? "Newest first ▼" : "Oldest first ▲";
+                text: State.chapters-desc ? "Newest first" : "Oldest first";
+                icon: State.chapters-desc ? @image-url("icons/down.svg") : @image-url("icons/up.svg");
                 clicked => {
                     State.chapters-desc = !State.chapters-desc;
                     Actions.chapters-sort-changed();

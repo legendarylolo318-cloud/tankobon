@@ -196,7 +196,8 @@ export component DownloadsView inherits Rectangle {
                 horizontal-stretch: 1;
             }
             SmallButton {
-                text: State.downloads-paused ? "▶ Resume all" : "⏸ Pause all";
+                text: State.downloads-paused ? "Resume all" : "Pause all";
+                icon: State.downloads-paused ? @image-url("icons/play.svg") : @image-url("icons/pause.svg");
                 enabled: State.downloads.length > 0 || State.downloads-paused;
                 clicked => {
                     if State.downloads-paused {
@@ -252,7 +253,8 @@ export component DownloadsView inherits Rectangle {
                         }
                         SmallButton {
                             y: (parent.height - self.height) / 2;
-                            text: d.paused || d.failed ? "▶ Resume" : "⏸ Pause";
+                            text: d.paused || d.failed ? "Resume" : "Pause";
+                            icon: d.paused || d.failed ? @image-url("icons/play.svg") : @image-url("icons/pause.svg");
                             clicked => {
                                 if d.paused || d.failed {
                                     Actions.download-resume(d.chapter-id);
@@ -263,7 +265,8 @@ export component DownloadsView inherits Rectangle {
                         }
                         SmallButton {
                             y: (parent.height - self.height) / 2;
-                            text: "✕ Cancel";
+                            text: "Cancel";
+                            icon: @image-url("icons/close.svg");
                             danger: true;
                             clicked => {
                                 Actions.download-cancel(d.chapter-id);

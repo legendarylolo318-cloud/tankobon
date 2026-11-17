@@ -5,14 +5,14 @@ import { MangaView } from "manga.slint";
 import { HistoryView, UpdatesView, DownloadsView } from "lists.slint";
 import { PrefsView } from "prefs.slint";
 import { ReaderView } from "reader.slint";
-import { SmallButton, Badge } from "widgets.slint";
+import { SmallButton, Badge, Icon } from "widgets.slint";
 import { LineEdit, Button, CheckBox, ListView , Palette } from "std-widgets.slint";
 
 export { State, Actions }
 
 component NavItem inherits Rectangle {
     in property <string> text;
-    in property <string> icon;
+    in property <image> icon;
     in property <bool> active;
     in property <string> badge;
     in property <bool> compact: false;
@@ -24,11 +24,12 @@ component NavItem inherits Rectangle {
         padding-left: 12px;
         padding-right: 10px;
         spacing: 10px;
-        Text {
-            text: root.icon;
-            font-size: 16px;
-            vertical-alignment: center;
-            color: root.active ? Palette.accent-background : Palette.foreground;
+        Icon {
+            y: (parent.height - self.height) / 2;
+            width: 18px;
+            height: 18px;
+            source: root.icon;
+            tint: root.active ? Palette.accent-background : Palette.foreground;
         }
         if !root.compact: Text {
             text: root.text;
@@ -105,12 +106,13 @@ export component AppWindow inherits Window {
         Palette.color-scheme = self.theme-idx == 0 ? ColorScheme.light : self.theme-idx == 1 ? ColorScheme.dark : ColorScheme.unknown;
     }
 
-    // Explicit geometry keeps the window size independent of `compact`.
+    // Explicit geometry keeps the window size independent of `compact`. The safe
+    // area keeps content clear of Android's status and navigation bars (0 on desktop).
     HorizontalLayout {
-        x: 0;
-        y: 0;
-        width: root.width;
-        height: root.height;
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
         if State.overlay != 2: Rectangle {
             width: root.compact ? 64px : 200px;
             background: Palette.alternate-background;
@@ -134,7 +136,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "Library";
-                    icon: "▤";
+                    icon: @image-url("icons/library.svg");
                     active: State.view == 0;
                     clicked => {
                         Actions.show-view(0);
@@ -143,7 +145,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "Explorer";
-                    icon: "⌕";
+                    icon: @image-url("icons/explore.svg");
                     active: State.view == 1;
                     clicked => {
                         Actions.show-view(1);
@@ -152,7 +154,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "Updates";
-                    icon: "⟳";
+                    icon: @image-url("icons/updates.svg");
                     active: State.view == 2;
                     badge: State.updates.length > 0 ? "\{State.updates.length}" : "";
                     clicked => {
@@ -162,7 +164,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "History";
-                    icon: "◷";
+                    icon: @image-url("icons/history.svg");
                     active: State.view == 3;
                     clicked => {
                         Actions.show-view(3);
@@ -171,7 +173,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "Downloads";
-                    icon: "⬇";
+                    icon: @image-url("icons/download.svg");
                     active: State.view == 4;
                     badge: State.downloads.length > 0 ? "\{State.downloads.length}" : "";
                     clicked => {
@@ -184,7 +186,7 @@ export component AppWindow inherits Window {
                 NavItem {
                     compact: root.compact;
                     text: "Preferences";
-                    icon: "⚙";
+                    icon: @image-url("icons/settings.svg");
                     active: State.view == 5;
                     clicked => {
                         Actions.show-view(5);
@@ -204,7 +206,12 @@ export component AppWindow inherits Window {
         }
     }
 
-    if State.overlay == 2: ReaderView { }
+    if State.overlay == 2: ReaderView {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+    }
 
     // ---- dialogs
     if State.dialog == 1: Modal {

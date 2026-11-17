@@ -344,7 +344,8 @@ export component ReaderView inherits Rectangle {
             padding: 10px;
             spacing: 10px;
             SmallButton {
-                text: "← Back";
+                text: "Back";
+                icon: @image-url("icons/back.svg");
                 clicked => {
                     Actions.reader-close();
                 }
@@ -366,27 +367,32 @@ export component ReaderView inherits Rectangle {
                 }
             }
             SmallButton {
-                text: "⏮ Prev chapter";
+                text: "Prev chapter";
+                icon: @image-url("icons/prev.svg");
                 enabled: State.r-has-prev-chapter;
                 clicked => {
                     Actions.reader-chapter(-1);
                 }
             }
             SmallButton {
-                text: "Next chapter ⏭";
+                text: "Next chapter";
+                icon: @image-url("icons/next.svg");
+                icon-after: true;
                 enabled: State.r-has-next-chapter;
                 clicked => {
                     Actions.reader-chapter(1);
                 }
             }
             SmallButton {
-                text: "⛶ Fullscreen";
+                text: "Fullscreen";
+                icon: @image-url("icons/fullscreen.svg");
                 clicked => {
                     Actions.reader-fullscreen-toggled();
                 }
             }
             SmallButton {
-                text: "⚙ Settings";
+                text: "Settings";
+                icon: @image-url("icons/settings.svg");
                 clicked => {
                     State.r-settings-open = !State.r-settings-open;
                 }

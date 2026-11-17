@@ -52,7 +52,8 @@ export component ExplorerView inherits Rectangle {
         HorizontalLayout {
             spacing: 10px;
             SmallButton {
-                text: "← Sources";
+                text: "Sources";
+                icon: @image-url("icons/back.svg");
                 clicked => {
                     State.current-source = -1;
                 }

@@ -1,6 +1,16 @@
 import { MangaCard } from "structs.slint";
 import { Button , Palette } from "std-widgets.slint";
 
+// Line icon drawn from an SVG and tinted, so it renders the same on every platform
+// (icon glyphs in fonts are missing on Android).
+export component Icon inherits Image {
+    in property <brush> tint: Palette.foreground;
+    colorize: root.tint;
+    image-fit: contain;
+    width: 16px;
+    height: 16px;
+}
+
 export component Cover inherits Rectangle {
     in property <image> source;
     in property <bool> loaded;
@@ -43,20 +53,33 @@ export component Badge inherits Rectangle {
 export component Chip inherits Rectangle {
     in property <string> text;
     in property <bool> active: false;
+    /// Optional icon shown after the text.
+    in property <image> icon;
     callback clicked();
+    property <bool> has-icon: root.icon.width > 0;
+    property <brush> ink: root.active ? Palette.accent-foreground : Palette.foreground;
     height: 30px;
     border-radius: 15px;
     background: root.active ? Palette.accent-background : Palette.control-background;
     border-width: 1px;
     border-color: root.active ? Palette.accent-background : Palette.border;
-    width: l.preferred-width + 24px;
+    width: l.preferred-width + 24px + (root.has-icon ? 20px : 0px);
     l := Text {
+        x: 12px;
+        width: self.preferred-width;
+        height: parent.height;
         text: root.text;
-        color: root.active ? Palette.accent-foreground : Palette.foreground;
+        color: root.ink;
         font-size: 13px;
         vertical-alignment: center;
-        horizontal-alignment: center;
-        width: parent.width;
+    }
+    if root.has-icon: Icon {
+        x: l.x + l.width + 4px;
+        y: (parent.height - self.height) / 2;
+        width: 14px;
+        height: 14px;
+        source: root.icon;
+        tint: root.ink;
     }
     ta := TouchArea {
         clicked => {
@@ -131,10 +154,11 @@ export component MangaCardView inherits Rectangle {
                 background: root.card.selected ? Palette.accent-background : Palette.background.with-alpha(0.8);
                 border-width: 2px;
                 border-color: Palette.accent-background;
-                Text {
-                    text: root.card.selected ? "✓" : "";
-                    color: Palette.accent-foreground;
-                    font-size: 12px;
+                if root.card.selected: Icon {
+                    width: 14px;
+                    height: 14px;
+                    source: @image-url("icons/check.svg");
+                    tint: Palette.accent-foreground;
                 }
             }
         }
@@ -191,23 +215,38 @@ export component ProgressBar inherits Rectangle {
 
 export component SmallButton inherits Rectangle {
     in property <string> text;
+    /// Optional icon, before the text (or after it with `icon-after`).
+    in property <image> icon;
+    in property <bool> icon-after: false;
     in property <bool> enabled: true;
     in property <bool> danger: false;
     callback clicked();
+    property <bool> has-icon: root.icon.width > 0;
+    property <brush> ink: root.danger ? #e53935 : Palette.control-foreground;
+    property <length> gap: root.has-icon && root.text != "" ? 6px : 0px;
+    property <length> content: (root.has-icon ? 16px : 0px) + root.gap + (root.text != "" ? l.preferred-width : 0px);
+    property <length> start: (root.width - root.content) / 2;
     height: 30px;
-    width: l.preferred-width + 22px;
+    width: root.content + 22px;
     border-radius: 5px;
     background: Palette.control-background;
     border-width: 1px;
     border-color: root.danger ? #e53935 : Palette.border;
     opacity: root.enabled ? 1 : 0.4;
+    if root.has-icon: Icon {
+        x: root.icon-after ? root.start + root.content - self.width : root.start;
+        y: (parent.height - self.height) / 2;
+        source: root.icon;
+        tint: root.ink;
+    }
     l := Text {
+        x: root.icon-after || !root.has-icon ? root.start : root.start + 16px + root.gap;
+        width: self.preferred-width;
+        height: parent.height;
         text: root.text;
         font-size: 13px;
-        color: root.danger ? #e53935 : Palette.control-foreground;
-        horizontal-alignment: center;
+        color: root.ink;
         vertical-alignment: center;
-        width: parent.width;
     }
     ta := TouchArea {
         enabled: root.enabled;
