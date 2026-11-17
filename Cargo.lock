@@ -5492,6 +5492,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tankobon-android"
+version = "0.1.0"
+dependencies = [
+ "slint",
+ "tankobon",
+]
+
+[[package]]
 name = "tankobon-core"
 version = "0.1.0"
 dependencies = [

@@ -61,10 +61,9 @@ pub fn desktop_main() -> Result<()> {
     run(AppPaths::discover()?)
 }
 
-/// Android entry point (called by the NativeActivity glue).
+/// Android entry point, called from the `tankobon-android` crate's `android_main`.
 #[cfg(target_os = "android")]
-#[unsafe(no_mangle)]
-fn android_main(app: slint::android::AndroidApp) {
+pub fn android_run(app: slint::android::AndroidApp) {
     let internal = app.internal_data_path().unwrap_or_else(|| std::path::PathBuf::from("/data/local/tmp/tankobon"));
     // App-specific external storage is reachable over USB, so local manga go there.
     let external = app.external_data_path().unwrap_or_else(|| internal.clone());

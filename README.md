@@ -88,7 +88,7 @@ Needs the Android SDK and NDK plus [`cargo-apk`](https://crates.io/crates/cargo-
 ```bash
 rustup target add aarch64-linux-android x86_64-linux-android
 cargo install cargo-apk
-cargo apk build --release -p tankobon --lib
+cargo apk build --release -p tankobon-android
 ```
 
 ### Optional: AVIF
@@ -100,8 +100,9 @@ cargo apk build --release -p tankobon --lib
 ```
 core/    database, models, sources (MangaDex, Local), archives, image pipeline + caches, downloads, updates, backup
 ui/      Slint UI (ui/*.slint), compiled by build.rs
-app/     wires the UI to core: desktop binary (main.rs) and Android library (lib.rs); network, decoding and
-         database work run off the UI thread
+app/     wires the UI to core (lib.rs) plus the desktop binary (main.rs); network, decoding and database
+         work run off the UI thread
+android/ Android shared library packaged with cargo-apk
 assets/  icon, desktop file, Android launcher icons
 ```
 

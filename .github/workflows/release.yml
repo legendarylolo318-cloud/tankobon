@@ -132,7 +132,7 @@ jobs:
             -alias tankobon -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Tankobon"
           export CARGO_APK_RELEASE_KEYSTORE="$PWD/release.keystore"
           export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android
-          cargo apk build --release -p tankobon --lib
+          cargo apk build --release -p tankobon-android
           find target -name '*.apk' -path '*release*'
           cp "$(find target -name 'tankobon.apk' -path '*release*' | head -1)" Tankobon.apk
           unzip -l Tankobon.apk | grep -E 'lib/|AndroidManifest'
