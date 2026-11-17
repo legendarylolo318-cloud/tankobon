@@ -14,7 +14,14 @@ pub fn wire(ctx: &C, w: &tankobon_ui::AppWindow) {
         let c = ctx.clone();
         a.on_show_view(move |v| {
             if let Some(w) = c.win() {
-                w.global::<State>().set_view(v);
+                let st = w.global::<State>();
+                // Navigating away from a manga page closes it; otherwise it stays on
+                // top of whatever view was picked in the sidebar.
+                if closes_manga_page(st.get_overlay()) {
+                    st.set_overlay(0);
+                    c.app().manga = Default::default();
+                }
+                st.set_view(v);
             }
             match v {
                 0 => crate::library::refresh(&c),
@@ -122,6 +129,12 @@ pub fn wire(ctx: &C, w: &tankobon_ui::AppWindow) {
             c.rt.spawn_blocking(move || d.cancel_all());
         });
     }
+}
+
+/// Whether picking a sidebar view should close the overlay: only the manga page
+/// (overlay 1). The reader (2) covers the sidebar, so it cannot be the source.
+pub fn closes_manga_page(overlay: i32) -> bool {
+    overlay == 1
 }
 
 fn row_of(e: &HistoryEntry, subtitle: String, when: String) -> ListRow {
@@ -353,4 +366,14 @@ pub fn update_library(ctx: &C, quiet: bool) {
             }
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sidebar_navigation_closes_manga_page_only() {
+        assert!(super::closes_manga_page(1));
+        assert!(!super::closes_manga_page(0));
+        assert!(!super::closes_manga_page(2));
+    }
 }
