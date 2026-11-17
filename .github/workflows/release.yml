@@ -61,10 +61,12 @@ jobs:
         run: |
           export XDG_DATA_HOME=$RUNNER_TEMP/data XDG_CACHE_HOME=$RUNNER_TEMP/cache XDG_CONFIG_HOME=$RUNNER_TEMP/cfg
           xvfb-run -a -s "-screen 0 1280x800x24" ./Tankobon-x86_64.AppImage > app.log 2>&1 &
+          PID=$!
           sleep 15
-          if pgrep -f tankobon > /dev/null; then echo "running"; else cat app.log; exit 1; fi
+          if kill -0 "$PID" 2>/dev/null; then echo "running (pid $PID)"; else echo "exited early"; cat app.log; exit 1; fi
+          # the app created its database, so it got past startup
           test -f "$XDG_DATA_HOME/tankobon/library.sqlite3"
-          pkill -f tankobon || true
+          kill "$PID" || true
       - uses: actions/upload-artifact@v4
         with:
           name: linux
